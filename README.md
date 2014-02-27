@@ -22,9 +22,9 @@ UUIDs are stored in node attributes and are often used to track shapes.
 Before jump and use Muuid in any scene, you need to set few variables to adapt
 on your workflow. Few variables can be redefined in config.py:
 
-* UUID_ATTR_NAME : The name of the attribute that will be created on each node
+* `UUID_ATTR_NAME` : The name of the attribute that will be created on each node
 and that will contain the UUID.
-* TRACKABLE_NODE_TYPES : A list on node type you want to put a UUID on.
+* `TRACKABLE_NODE_TYPES` : A list on node type you want to put a UUID on.
 
 ## Examples
 
@@ -73,26 +73,4 @@ Get a dict with UUIDs as key and full node path as value :
 
 * [Maya 2014 documentation](http://download.autodesk.com/global/docs/maya2014/en_us/index.html)
 * [Python UUID module documentation](http://docs.python.org/2.7/library/uuid.html)
-
-## Licence
-
-Copyright (c) 2014 Dorian Fevrier
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 
