@@ -1,6 +1,6 @@
 # Muuid 1.0
 
-![](doc/muuid.svg)
+![](doc/muuid-logo.svg)
 
 ## About
 
