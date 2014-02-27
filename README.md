@@ -1,6 +1,6 @@
 # Muuid 1.0
 
-![](doc/maya_uuid_attribute_screenshot.png)
+![](doc/muuid.svg)
 
 ## About
 
@@ -8,6 +8,8 @@ Muuid (pronounce _"mee-youd"_) is a simple way to handle UUIDs on Maya nodes.
 
 It expose few simple method to add, find, and check UUID on current scene nodes.
 UUIDs are stored in node attributes and are often used to track shapes.
+
+![](doc/maya_uuid_attribute_screenshot.png)
 
 ## Features
 
