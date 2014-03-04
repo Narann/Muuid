@@ -54,27 +54,28 @@ Limitations::
  - Can't deal with by face material assignation.
  - On better infrastructures that use "representation" nodes (low/high rez
    variation) the UUID principe can be irrelevant.
-
-TOOD:
- - Add a "ready for massive UUID assignement" function.
-
- """
+"""
 
 __author__  = 'Dorian Fevrier <fevrier.dorian@yahoo.fr>'
 __version__ = '1.0'
-__all__     = [ 'set_all_uuids',
-                'set_uuid'     ,
-                'uuid_map'     ,
-                'get_node'     ,
-                'get_uuid'     ,
-                'check_uuids'  ]
+__all__     = [ 'set_all_uuids'                     ,
+                'set_uuid'                          ,
+                'uuid_map'                          ,
+                'get_node'                          ,
+                'get_uuid'                          ,
+                'check_safety'                      ,
+                'check_uuids'                       ,
+                'register_creation_callback'        ,
+                'unregister_all_creation_callbacks' ,
+                'unregister_all_callbacks'          ]
 
 import uuid
-import maya.cmds as mc
+import maya.cmds     as mc
+import maya.OpenMaya as om
 import config
 
-uuid_attr_name = config.UUID_ATTR_NAME
-
+_uuid_attr_name = config.UUID_ATTR_NAME
+_creation_callback_ids   = list()
 
 def _remove_all_uuids() :
     """Should actually never be used because it could compromise every node dependencies!"""
@@ -84,15 +85,15 @@ def _remove_all_uuids() :
 
 def _remove_uuid( node ) :
     """Remove the uuid of the given node."""
-    node_attr = '%s.%s' % ( node, uuid_attr_name )
+    node_attr = '%s.%s' % ( node, _uuid_attr_name )
     if mc.attributeQuery( uuid_attr_name, node = node, exists = True ) :
         if mc.referenceQuery( node, isNodeReferenced = True ) :
-            msg  = 'This node has a uuid attribute on it but '
-            msg += 'is in reference, can\'t remove attribute : %s' % node
+            msg  = 'This node has an uuid on it but is in reference, can\'t '
+            msg += 'remove its uuid : %s' % node
             mc.warning( msg )
         if mc.getAttr( node_attr, lock = True ) :
             mc.setAttr( node_attr, lock = False )
-        mc.deleteAttr( node, attribute = uuid_attr_name )
+        mc.deleteAttr( node, attribute = _uuid_attr_name )
 
 def set_all_uuids() :
     """Create a uuid to every node in your current Maya scene."""
@@ -101,21 +102,35 @@ def set_all_uuids() :
 
 def set_uuid( node ) :
     """Set a uuid to the given node."""
-    mc.addAttr( node, longName = uuid_attr_name, dataType='string' )
-    mc.setAttr( '%s.%s' % ( node, uuid_attr_name ), str(uuid.uuid4().hex), type='string', lock=True )
+    mc.addAttr( node, longName = _uuid_attr_name, dataType='string' )
+    mc.setAttr( '%s.%s' % ( node, _uuid_attr_name ), str(uuid.uuid4().hex), type='string', lock=True )
 
 def uuid_missing_nodes() :
     """A generator to nodes that are supposed to have uuid on them but don't."""
     for node in uuid_nodes() :
         if mc.referenceQuery( node, isNodeReferenced = True ) :
             continue
-        if not mc.attributeQuery( uuid_attr_name, node = node, exists = True ) :
+        if not has_uuid( node ) :
             yield node
 
 def uuid_nodes() :
-    """A generator to every nodes supposed to have a uuid on them."""
-    for node in mc.ls( long = True, persistentNodes = False, type = config.TRACKABLE_NODE_TYPES ) :
+    """A generator to every nodes supposed to have a uuid on them.
+    
+    This generator doesn't check if there is uuid on nodes or if you could set
+    uuid on them. It just return every node that match with the uuid rules and
+    are supposed to have uuid on them in the current scene.
+    """
+    unwanted_nodes = config.DEFAULT_NODES + config.UNWANTED_NODES
+    for node in mc.ls( long = True                        ,
+                       type = config.TRACKABLE_NODE_TYPES ) :
+        if node in unwanted_nodes :
+            continue
         yield node
+
+def could_have_uuid( node ) :
+    """Return if the node could recieve a uuid on it."""
+    full_path_node = mc.ls( node, long = True )
+    return full_path_node in uuid_nodes()
 
 def uuid_map() :
     """Return a dict with UUIDs as key and full nodes path as value."""
@@ -131,21 +146,44 @@ def get_node( uuid_value ) :
         if get_uuid( node ) == uuid_value :
             return node
 
+def has_uuid( node ) :
+    """Return if the given node has uuid on it."""
+    return mc.attributeQuery( _uuid_attr_name, node = node, exists = True )
+
 def get_uuid( node ) :
     """Return the uuid value of the given node."""
-    return mc.getAttr( '%s.%s' % ( node, uuid_attr_name ) )
+    return mc.getAttr( '%s.%s' % ( node, _uuid_attr_name ) )
 
+def check_safety() :
+    """Check if the scene is safe enough to apply a set_uuid everywhere.
+    
+    This function check every node in the scene to ensure the scene is ready to
+    get uuids on every nodes supposed to have one. Fail mean you will not be
+    able to apply set_uuid on some/all nodes."""
+    safe = True
+    for node in uuid_nodes() :
+        if mc.lockNode( node, query = True )[ 0 ] :
+            msg  = "Node locked, set a uuid on it will be impossible : %s" % node
+            mc.warning( msg )
+            safe = False
+        if mc.referenceQuery( node , isNodeReferenced = True ) :
+            msg   = "Node in reference. Set an uuid on it will not make it "
+            msg  += "unique. You should disable reference before or set uuids "
+            msg  += "at the source of the referenced scene : %s" % node
+            mc.warning( msg )
+            safe = False
+    return safe
+    
 def check_uuids() :
     """Return if the current scene is "uuid consistant".
 
-    If this fail, the scene has inconsistant uuid nodes, you should fix the problems before going further.
+    If this fail, the scene has inconsistant uuid nodes, you should fix the
+    problems before going further.
     """
     for node in uuid_nodes() :
-        node_attr = '%s.%s' % ( node, uuid_attr_name )
-        if not mc.attributeQuery( uuid_attr_name, node = node, exists=True ) :
+        node_attr = '%s.%s' % ( node, _uuid_attr_name )
+        if not has_uuid( node ) :
             mc.warning( "This node is supposed to have a uuid : %s" % node )
-            if mc.referenceQuery( node, isNodeReferenced = True ) :
-                mc.warning( "As this node seems to be in reference, you should solve the problem in the reference itself." )
             return False
         # uuid not locked?
         if not mc.getAttr( node_attr, lock = True ) :
@@ -160,4 +198,42 @@ def check_uuids() :
             mc.warning( "This node seems to have an invalid uuid value : %s" % node )
             return False
     return True
+
+def register_uuid_creation_callback() :
+    """Register a callback that will create uuids on the fly.
+    
+    This callback should be registered only once or you could have unexpected
+    results.
+    """
+    global _creation_callback_ids
+    
+    def set_uuid_on_mobject_callback( mobject, data ):
+        """Set a uuid on the given mobject if it's supposed to have one."""
+        nodeFullPath = None
+        if mobject.hasFn( om.MFn.kDagNode ) :
+            nodeFn = om.MFnDagNode( mobject )
+            nodeFullPath = nodeFn.fullPathName()
+        elif mobject.hasFn( om.MFn.kDependencyNode ) :
+            nodeFn = om.MFnDependencyNode( mobject )
+            nodeFullPath = '|%s' % nodeFn.name()
+        
+        if could_have_uuid( nodeFullPath ) :
+            set_uuid( nodeFullPath )
+        
+    callback_id = om.MDGMessage.addNodeAddedCallback( set_uuid_on_mobject_callback )
+    
+    _creation_callback_ids.append( callback_id )
+    
+    return callback_id
+    
+def unregister_all_uuid_creation_callbacks() :
+    """Unregister every callbacks created with register_uuid_creation_callback."""
+    global _creation_callback_ids
+    for callback_id in _creation_callback_ids :
+        om.MMessage.removeCallback( callback_id )
+    _creation_callback_ids = list()
+    
+def unregister_all_callbacks() :
+    """Unregister every callbacks created using muuid."""
+    unregister_all_uuid_creation_callbacks()
 
